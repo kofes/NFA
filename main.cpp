@@ -8,7 +8,8 @@ int main() {
   // parser.regex() = "a|b";
   // parser.regex() = "a.?";
   // parser.regex() = "a*\\+";
-  parser.parse("");
+  parser.regex() = "(a|b)*";
+  std::cout << parser.match("c") << std::endl;
   std::cout << parser.print() << std::endl;
   return 0;
 }

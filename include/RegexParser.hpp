@@ -26,6 +26,7 @@ enum Token {
   Circumflex,     //'^' - from beginning
   Dollar,         //'$' - at the end
   Character,      //[a-zA-Z0-9]
+  Concat,
 };
 
 static std::map<Token, char> Tokens {
@@ -59,11 +60,26 @@ struct State {
   int low = 1, high = 1;
   virtual std::string print(int deep) {
     std::ostringstream sstream;
-    sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << Tokens[token] << '\n'
+    sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << Tokens[token]
             << " {"
             << ((low < 0) ? "-inf" : std::to_string(low)) << ", "
-            << ((high < 0) ? "inf" : std::to_string(high)) << "}\n";
+            << ((high < 0) ? "inf" : std::to_string(high)) << "}";
+    if (child.size())
+      sstream << '\n';
     for (int i = 0; i < child.size(); ++i)
+      sstream << child[i]->print(deep+1) << '\n';
+    return sstream.str();
+  };
+};
+
+struct StateConcat : public State {
+  StateConcat () : State(Concat) {};
+  std::string print(int deep) override {
+    std::ostringstream sstream;
+    for (int i = 0; i < child.size()/2; ++i)
+      sstream << child[i]->print(deep+1) << '\n';
+    sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << '&' << std::endl;
+    for (int i = child.size()/2; i < child.size(); ++i)
       sstream << child[i]->print(deep+1) << '\n';
     return sstream.str();
   };
@@ -86,10 +102,12 @@ struct StateSubRegexp : public State {
   StateSubRegexp () : State(LeftParenthes) {};
   std::string print(int deep) override {
     std::ostringstream sstream;
-    sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << "()\n"
+    sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << "()"
             << " {"
             << ((low < 0) ? "-inf" : std::to_string(low)) << ", "
-            << ((high < 0) ? "inf" : std::to_string(high)) << "}\n";
+            << ((high < 0) ? "inf" : std::to_string(high)) << "}";
+    if (child.size())
+      sstream << '\n';
     for (int i = 0; i < child.size(); ++i)
       sstream << child[i]->print(deep+1) << '\n';
     return sstream.str();
@@ -102,9 +120,13 @@ struct StateSym : public State {
   std::string print(int deep) override {
     std::ostringstream sstream;
     sstream << std::string(deep * DEEP_STEP, DEEP_CHAR) << sym
-            << " {" << low << ", " << high << "}\n";
+            << " {"
+            << ((low < 0) ? "-inf" : std::to_string(low)) << ", "
+            << ((high < 0) ? "inf" : std::to_string(high)) << "}";
+    if (child.size())
+      sstream << '\n';
     for (int i = 0; i < child.size(); ++i)
-      sstream << child[i]->print(deep+1);
+      sstream << child[i]->print(deep+1) << '\n';
     return sstream.str();
   };
 };
@@ -129,9 +151,10 @@ public:
   Parser () {};
   Parser (const std::string& regex) : regex_(regex) {};
   std::string& regex() {return regex_;}
-  void parse(const std::string& str);
+  bool match(const std::string& str);
   std::string print();
 private:
+  bool check(pState& node, const std::string& str);
   pState parseTerm();
   pState parseExpr();
   pState parseClass();
